@@ -1,60 +1,35 @@
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
+import numpy as np
 import joblib
-import pickle
 
-# Load the dataset
 df = pd.read_csv("train.csv")
-
-# Select features and target
 include = ['Age', 'Sex', 'Embarked', 'Survived']
 df_ = df[include]
-
-# Create a copy of the DataFrame
 dff = df_.copy()
-
-# Handle missing values
-dff['Age'] = dff['Age'].fillna(dff['Age'].median())
-dff['Embarked'] = dff['Embarked'].fillna(dff['Embarked'].mode()[0])
+for col in dff.columns:
+    dff.fillna({col: 0}, inplace=True)
 
 
-# Define categorical columns
 categoricals = ['Sex', 'Embarked']
+df_ohe = pd.get_dummies(dff, columns=categoricals, dummy_na=True)
 
-# Create a pipeline for preprocessing
-numeric_features = ['Age']
-numeric_transformer = Pipeline(steps=[
-    ('imputer', SimpleImputer(strategy='median'))])
+from sklearn.linear_model import LogisticRegression
+dependent_variable = 'Survived'
+x = df_ohe[df_ohe.columns.difference([dependent_variable])]
+y = df_ohe[dependent_variable]
+lr = LogisticRegression()
+lr.fit(x, y)
 
-categorical_features = ['Sex', 'Embarked']
-categorical_transformer = Pipeline(steps=[
-    ('imputer', SimpleImputer(strategy='most_frequent')),
-    ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,
+          intercept_scaling=1, max_iter=100, multi_class='ovr', n_jobs=1,
+          penalty='l2', random_state=None, solver='liblinear', tol=0.0001,
+          verbose=0, warm_start=False)
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', numeric_transformer, numeric_features),
-        ('cat', categorical_transformer, categorical_features)])
-
-# Append classifier to preprocessing pipeline
-clf = Pipeline(steps=[('preprocessor', preprocessor),
-                      ('classifier', LogisticRegression())])
-
-# Define X and y
-X = df_.drop('Survived', axis=1)
-y = df_['Survived']
-
-# Split the dataset into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Fit the model
-clf.fit(X_train, y_train)
-
-# Save the model
-joblib.dump(clf, 'model.pkl')
+joblib.dump(lr, 'model.pkl')
 print("Model dumped!")
+
+lr = joblib.load('model.pkl')
+
+model_columns = list(x.columns)
+joblib.dump(model_columns, 'model_columns.pkl')
+print("Models columns dumped!")
